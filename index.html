@@ -408,6 +408,22 @@
   }
 
   // ── Gist CRUD ─────────────────────────────────
+  async function findExistingGist() {
+    // Search user's gists for one containing our sync file
+    try {
+      const res = await ghFetch("https://api.github.com/gists?per_page=50");
+      const gists = await res.json();
+      for (const g of gists) {
+        if (g.files && g.files[GIST_FILENAME]) {
+          return g.id;
+        }
+      }
+    } catch(e) {
+      console.warn("findExistingGist:", e.message);
+    }
+    return null;
+  }
+
   async function createGist(td) {
     const payload={
       description:"📝 Todo sync data",
@@ -663,25 +679,30 @@
   function closeHistoryModal(){ historyModal.classList.remove("show"); }
 
   // ── Setup ─────────────────────────────────────
-  function showSetup(){
+  function showSetup(mode){
     const existing=document.querySelector(".setup-overlay");
     if (existing) existing.remove();
+
+    const isNewDevice = (mode==="connect"); // "connect" = phone joining existing list
+    const hasGistFromURL = !!gistId;
 
     const overlay=document.createElement("div");
     overlay.className="setup-overlay";
     overlay.innerHTML=`
       <div class="setup-card">
-        <h2>☁️ 开启云端同步</h2>
-        <p>输入 GitHub Token，待办清单就能在手机和电脑之间自动同步。</p>
+        <h2>${hasGistFromURL ? "🔗 加入共享清单" : "☁️ 开启云端同步"}</h2>
+        <p>${hasGistFromURL
+          ? "你打开了共享链接。输入 Token 即可参与编辑。"
+          : "输入 GitHub Token，待办清单就能在手机和电脑之间自动同步。"}</p>
         <p style="font-size:0.78rem;color:var(--orange);margin-bottom:12px;">
-          ⚠️ 注意：如果之前的 Token 已删除，需去
-          <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a>
-          生成新的（勾选 repo）
+          ⚠️ Token 需要勾选 <b>repo</b> 和 <b>gist</b> 两个权限<br>
+          <a href="https://github.com/settings/tokens" target="_blank">去生成 Token →</a>
         </p>
         <input type="password" id="setupToken" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+        ${hasGistFromURL ? '<p style="font-size:0.75rem;color:var(--text-secondary);margin-top:6px;">✅ 已自动识别共享数据</p>' : ''}
         <p class="setup-error" id="setupError"></p>
         <div class="actions">
-          <button class="btn btn-primary" id="setupSubmit">🚀 开启同步</button>
+          <button class="btn btn-primary" id="setupSubmit">🚀 ${hasGistFromURL ? "加入并开始同步" : "开启同步"}</button>
           <button class="skip" id="setupSkip">跳过，使用本地模式</button>
         </div>
       </div>
@@ -714,10 +735,16 @@
         if (res.status===403) throw new Error("AUTH_DENIED");
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
-        // Step 2: create gist if needed
+        // Step 2: find existing or create gist
         if (!gistId) {
-          submit.textContent="⏳ 创建云端存储…";
-          gistId=await createGist(tasks);
+          submit.textContent="⏳ 搜索已有同步数据…";
+          gistId = await findExistingGist();
+          if (gistId) {
+            showToast("✅ 找到已有同步数据！","正在同步…");
+          } else {
+            submit.textContent="⏳ 创建云端存储…";
+            gistId = await createGist(tasks);
+          }
         }
         saveConfig();
         overlay.remove();
@@ -732,15 +759,16 @@
         errEl.style.display="block";
         switch(e.message) {
           case "TIMEOUT":
-            errEl.innerHTML="⏱️ 连接超时<br><small>GitHub API 可能在你当前的网络环境访问较慢，试试连 WiFi 或换个网络</small>"; break;
+            errEl.innerHTML="⏱️ 连接超时<br><small>GitHub API 在你当前网络较慢，试试连 WiFi</small>"; break;
           case "NETWORK":
-            errEl.innerHTML="🌐 网络不通<br><small>无法访问 api.github.com，可能需要科学上网或切换 WiFi</small>"; break;
+            errEl.innerHTML="🌐 网络不通<br><small>无法访问 api.github.com，试试切换 WiFi 或科学上网</small>"; break;
           case "AUTH_BAD":
-            errEl.innerHTML="🔑 Token 无效<br><small>Token 可能已被删除或过期，请去 GitHub 生成新的</small>"; break;
+            errEl.innerHTML="🔑 Token 无效<br><small>Token 已删除或过期，请去 GitHub 生成新的</small>"; break;
           case "AUTH_DENIED":
-            errEl.innerHTML="🚫 Token 权限不足<br><small>生成 Token 时需要勾选 <b>repo</b> 权限</small>"; break;
+            errEl.innerHTML="🚫 Token 权限不足<br><small>生成时需同时勾选 <b>repo</b> + <b>gist</b> 两项权限</small>"; break;
           default:
-            errEl.textContent="❌ 未知错误："+e.message+"，请重试";
+            errEl.textContent="❌ "+e.message+"，请重试";
+            console.error("Setup error:", e);
         }
       }
     });
