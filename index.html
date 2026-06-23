@@ -378,11 +378,31 @@
     return h;
   }
 
+  // fetch with 10-second timeout
+  async function fetchWithTimeout(url, opts={}, timeoutMs=10000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...opts, signal: controller.signal, headers: { ...ghHeaders(), ...(opts.headers||{}) } });
+      return res;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function ghFetch(url, opts={}) {
-    const res=await fetch(url,{...opts,headers:{...ghHeaders(),...(opts.headers||{})}});
+    let res;
+    try {
+      res = await fetchWithTimeout(url, opts);
+    } catch (e) {
+      if (e.name === "AbortError") throw new Error("TIMEOUT");
+      if (e.message === "Failed to fetch" || e.name === "TypeError") throw new Error("NETWORK");
+      throw e;
+    }
     if (!res.ok) {
-      if (res.status===401||res.status===403) throw new Error("AUTH");
-      throw new Error(`GitHub ${res.status}`);
+      if (res.status===401) throw new Error("AUTH_BAD");
+      if (res.status===403) throw new Error("AUTH_DENIED");
+      throw new Error(`HTTP_${res.status}`);
     }
     return res;
   }
@@ -420,7 +440,7 @@
         v:parsed.v||1
       };
     } catch(e){
-      if (e.message==="AUTH"){ setReadOnly(); throw e; }
+      if (e.message==="AUTH_BAD"||e.message==="AUTH_DENIED"){ setReadOnly(); throw e; }
       console.warn("readGist:",e.message); return null;
     }
   }
@@ -436,7 +456,7 @@
       lastRemoteETag=null;
       return true;
     } catch(e){
-      if (e.message==="AUTH") setReadOnly();
+      if (e.message==="AUTH_BAD"||e.message==="AUTH_DENIED") setReadOnly();
       console.warn("writeGist:",e.message); return false;
     }
   }
@@ -652,8 +672,13 @@
     overlay.innerHTML=`
       <div class="setup-card">
         <h2>☁️ 开启云端同步</h2>
-        <p>输入 GitHub Token，待办清单就能在手机和电脑之间自动同步。每 5 秒自动拉取更新，修改后自动保存。</p>
-        <input type="password" id="setupToken" placeholder="ghp_xxxxxxxxxxxx">
+        <p>输入 GitHub Token，待办清单就能在手机和电脑之间自动同步。</p>
+        <p style="font-size:0.78rem;color:var(--orange);margin-bottom:12px;">
+          ⚠️ 注意：如果之前的 Token 已删除，需去
+          <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a>
+          生成新的（勾选 repo）
+        </p>
+        <input type="password" id="setupToken" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
         <p class="setup-error" id="setupError"></p>
         <div class="actions">
           <button class="btn btn-primary" id="setupSubmit">🚀 开启同步</button>
@@ -672,24 +697,51 @@
     submit.addEventListener("click",async()=>{
       const tok=tokInput.value.trim();
       if (!tok||!tok.startsWith("ghp_")){
-        errEl.style.display="block"; errEl.textContent="请输入有效的 GitHub Token（ghp_ 开头）"; return;
+        errEl.style.display="block"; errEl.textContent="❌ Token 格式不对，应该以 ghp_ 开头"; return;
       }
-      errEl.style.display="none"; submit.disabled=true; submit.textContent="⏳ 验证中…";
+      errEl.style.display="none"; submit.disabled=true; submit.textContent="⏳ 验证中（最长10秒）…";
       try {
         token=tok;
-        const res=await fetch("https://api.github.com/user",{headers:ghHeaders()});
-        if (!res.ok) throw new Error();
-        if (!gistId) { gistId=await createGist(tasks); }
+        // Step 1: verify token
+        let res;
+        try {
+          res = await fetchWithTimeout("https://api.github.com/user");
+        } catch(e) {
+          if (e.name==="AbortError") throw new Error("TIMEOUT");
+          throw new Error("NETWORK");
+        }
+        if (res.status===401) throw new Error("AUTH_BAD");
+        if (res.status===403) throw new Error("AUTH_DENIED");
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
+
+        // Step 2: create gist if needed
+        if (!gistId) {
+          submit.textContent="⏳ 创建云端存储…";
+          gistId=await createGist(tasks);
+        }
         saveConfig();
         overlay.remove();
         readOnly=false;
+        submit.disabled=false;
         await pullFromRemote();
         startPolling();
-        showToast("✅ 同步已开启！","手机电脑自动同步，每5秒检查更新");
+        showToast("✅ 同步已开启！","手机和电脑自动同步 ✓");
       } catch(e){
-        errEl.style.display="block"; errEl.textContent="Token 无效或网络不通，请重试";
-        submit.disabled=false; submit.textContent="🚀 开启同步";
+        submit.disabled=false; submit.textContent="🚀 重试";
         token=null;
+        errEl.style.display="block";
+        switch(e.message) {
+          case "TIMEOUT":
+            errEl.innerHTML="⏱️ 连接超时<br><small>GitHub API 可能在你当前的网络环境访问较慢，试试连 WiFi 或换个网络</small>"; break;
+          case "NETWORK":
+            errEl.innerHTML="🌐 网络不通<br><small>无法访问 api.github.com，可能需要科学上网或切换 WiFi</small>"; break;
+          case "AUTH_BAD":
+            errEl.innerHTML="🔑 Token 无效<br><small>Token 可能已被删除或过期，请去 GitHub 生成新的</small>"; break;
+          case "AUTH_DENIED":
+            errEl.innerHTML="🚫 Token 权限不足<br><small>生成 Token 时需要勾选 <b>repo</b> 权限</small>"; break;
+          default:
+            errEl.textContent="❌ 未知错误："+e.message+"，请重试";
+        }
       }
     });
 
@@ -769,7 +821,7 @@
         }
         setSyncStatus("online","已同步 ✓");
       } catch(e){
-        if (e.message==="AUTH"){
+        if (e.message==="AUTH_BAD"||e.message==="AUTH_DENIED"){
           setReadOnly();
           // Try public read
           try {
