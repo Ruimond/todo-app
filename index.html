@@ -231,9 +231,10 @@
   <header class="header">
     <h1>📝 我们的待办清单</h1>
     <p class="date" id="dateDisplay"></p>
-    <div class="sync-bar" id="syncBar" title="点击手动同步">
+    <div class="sync-bar" id="syncBar" title="点击手动同步 | Gist ID 可确认两台设备是否连同一个">
       <span class="sync-dot" id="syncDot"></span>
       <span id="syncLabel">离线模式</span>
+      <span id="syncGistId" style="font-size:0.65rem;opacity:0.5;margin-left:4px;"></span>
     </div>
     <div class="shared-badge" id="sharedBadge">💌 来自TA分享的清单</div>
   </header>
@@ -333,6 +334,7 @@
   const toast          = $("toast");
   const syncDot        = $("syncDot");
   const syncLabel      = $("syncLabel");
+  const syncGistIdEl   = $("syncGistId");
   const syncBar        = $("syncBar");
   const shareModal     = $("shareModal");
   const sharePreview   = $("sharePreview");
@@ -369,6 +371,18 @@
   // ── Sync UI ───────────────────────────────────
   function setSyncStatus(s, label) {
     syncStatus=s; syncDot.className="sync-dot "+s; syncLabel.textContent=label||s;
+    // Show last 4 chars of Gist ID so user can verify both devices use same one
+    if (gistId && s!=="offline") {
+      syncGistIdEl.textContent = "ID:"+gistId.slice(-4);
+      syncGistIdEl.title = "Gist: "+gistId;
+    } else if (!gistId) {
+      syncGistIdEl.textContent = "";
+    }
+  }
+
+  function syncFailToast(action) {
+    if (syncStatus==="offline") return; // don't spam
+    showToast("⚠️ "+action+"失败", "点击顶部状态栏手动重试");
   }
 
   // ── GitHub API ────────────────────────────────
@@ -538,6 +552,7 @@
       setSyncStatus("online","已同步 ✓");
     } catch(e){
       setSyncStatus("offline","同步失败");
+      syncFailToast("同步");
     }
   }
 
@@ -550,7 +565,12 @@
       saveLocal();
       setSyncStatus("syncing","保存中…");
       const ok=await writeGist(tasks);
-      setSyncStatus(ok?"online":"offline",ok?"已同步 ✓":"保存失败");
+      if (ok) {
+        setSyncStatus("online","已同步 ✓");
+      } else {
+        setSyncStatus("offline","保存失败");
+        syncFailToast("保存");
+      }
       render();
     },DEBOUNCE_DELAY);
   }
