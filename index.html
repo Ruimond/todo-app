@@ -4,367 +4,221 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>📝 我们的待办清单</title>
-
-<!-- WeChat / social share preview -->
 <meta property="og:title" content="📝 我们的待办清单">
 <meta property="og:description" content="一起完成每一件小事 ❤️">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="zh_CN">
-<meta name="description" content="一个轻巧的共享待办清单，把任务发给TA一起完成">
+<meta name="description" content="云端同步的共享待办清单">
 
 <style>
   :root {
-    --bg: #f0f2f5;
-    --card: #ffffff;
-    --text: #1a1a2e;
-    --text-secondary: #6b7280;
-    --border: #e5e7eb;
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --danger: #ef4444;
-    --danger-hover: #dc2626;
-    --success: #22c55e;
-    --pink: #ec4899;
-    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.04);
-    --radius: 12px;
-    --transition: 0.2s ease;
+    --bg: #f0f2f5; --card: #fff; --text: #1a1a2e; --text-secondary: #6b7280;
+    --border: #e5e7eb; --primary: #6366f1; --primary-hover: #4f46e5;
+    --danger: #ef4444; --success: #22c55e; --pink: #ec4899; --orange: #f59e0b;
+    --shadow: 0 1px 3px rgba(0,0,0,.08); --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.08);
+    --radius: 12px; --transition: 0.2s ease;
   }
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    padding: 40px 16px 60px;
-    line-height: 1.6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    display: flex; justify-content: center; padding: 40px 16px 60px; line-height: 1.6;
   }
+  .app { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 16px; }
 
-  .app {
-    width: 100%;
-    max-width: 520px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  /* ── Header ──────────────────────────────── */
-  .header {
-    text-align: center;
-    padding: 8px 0;
-  }
+  /* Header */
+  .header { text-align: center; padding: 8px 0; }
   .header h1 {
-    font-size: 1.9rem;
-    font-weight: 700;
+    font-size: 1.8rem; font-weight: 700;
     background: linear-gradient(135deg, var(--primary), #a855f7, var(--pink));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   }
-  .header .date {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin-top: 4px;
-  }
-  .header .shared-badge {
-    display: none;
-    margin-top: 6px;
-    font-size: 0.8rem;
-    color: var(--pink);
-    background: #fdf2f8;
-    border-radius: 20px;
-    padding: 3px 12px;
-    display: inline-block;
-  }
-  .header .shared-badge.show { display: inline-block; }
+  .header .date { color: var(--text-secondary); font-size: 0.82rem; margin-top: 2px; }
 
-  /* ── Input ────────────────────────────────── */
-  .input-group {
-    display: flex;
-    gap: 8px;
+  /* Sync status */
+  .sync-bar {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 0.75rem; color: var(--text-secondary); padding: 2px 0; cursor: pointer;
   }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; transition: all 0.3s; }
+  .sync-dot.online { background: var(--success); animation: pulse 2s infinite; }
+  .sync-dot.syncing { background: var(--orange); }
+  .sync-dot.offline { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .shared-badge {
+    display: none; margin: 4px auto 0; font-size: 0.75rem; color: var(--pink);
+    background: #fdf2f8; border-radius: 20px; padding: 2px 12px; width: fit-content;
+  }
+  .shared-badge.show { display: block; }
+
+  /* Setup overlay */
+  .setup-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .setup-card {
+    background: #fff; border-radius: 16px; padding: 28px 24px; max-width: 400px; width: 100%;
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.15);
+  }
+  .setup-card h2 { font-size: 1.3rem; margin-bottom: 6px; }
+  .setup-card p { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 18px; line-height: 1.5; }
+  .setup-card input {
+    width: 100%; padding: 12px 14px; border: 2px solid var(--border); border-radius: 10px;
+    font-size: 0.9rem; outline: none; transition: border-color var(--transition);
+  }
+  .setup-card input:focus { border-color: var(--primary); }
+  .setup-card .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .setup-card .btn { width: 100%; }
+  .setup-card .skip {
+    font-size: 0.8rem; color: var(--text-secondary);
+    background: none; border: none; cursor: pointer; text-decoration: underline;
+  }
+  .setup-error { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+
+  /* Input */
+  .input-group { display: flex; gap: 8px; }
   .input-group input {
-    flex: 1;
-    padding: 12px 16px;
-    border: 2px solid var(--border);
-    border-radius: var(--radius);
-    font-size: 1rem;
-    background: var(--card);
-    color: var(--text);
+    flex: 1; padding: 12px 16px; border: 2px solid var(--border); border-radius: var(--radius);
+    font-size: 1rem; background: var(--card); color: var(--text); outline: none;
     transition: border-color var(--transition);
-    outline: none;
   }
-  .input-group input:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99,102,241,.15);
-  }
+  .input-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
   .input-group input::placeholder { color: #9ca3af; }
 
   .btn {
-    padding: 12px 20px;
-    border: none;
-    border-radius: var(--radius);
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition);
-    white-space: nowrap;
-    user-select: none;
+    padding: 12px 20px; border: none; border-radius: var(--radius); font-size: 0.9rem;
+    font-weight: 600; cursor: pointer; transition: all var(--transition); white-space: nowrap;
     -webkit-tap-highlight-color: transparent;
   }
-  .btn-primary {
-    background: var(--primary);
-    color: #fff;
-  }
+  .btn-primary { background: var(--primary); color: #fff; }
   .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
   .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-  /* ── Toolbar ──────────────────────────────── */
-  .toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .filters {
-    display: flex;
-    gap: 4px;
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 4px;
-    box-shadow: var(--shadow);
-  }
+  /* Toolbar */
+  .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .filters { display: flex; gap: 4px; background: var(--card); border-radius: var(--radius); padding: 4px; box-shadow: var(--shadow); }
   .filter-btn {
-    padding: 6px 14px;
-    border: none;
-    background: transparent;
-    border-radius: 8px;
-    font-size: 0.82rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-weight: 500;
+    padding: 6px 14px; border: none; background: transparent; border-radius: 8px;
+    font-size: 0.8rem; cursor: pointer; color: var(--text-secondary); font-weight: 500;
     transition: all var(--transition);
   }
-  .filter-btn.active {
-    background: var(--primary);
-    color: #fff;
-  }
+  .filter-btn.active { background: var(--primary); color: #fff; }
   .filter-btn:not(.active):hover { background: var(--bg); color: var(--text); }
-  .counter {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
+  .counter { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; }
   .counter span { color: var(--primary); font-weight: 700; }
 
-  /* ── List ─────────────────────────────────── */
-  .todo-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-height: 60px;
-  }
+  /* List */
+  .todo-list { list-style: none; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
   .todo-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    background: var(--card);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    transition: all var(--transition);
-    animation: slideIn 0.3s ease;
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    transition: all var(--transition); animation: slideIn 0.3s ease;
   }
   .todo-item:hover { box-shadow: var(--shadow-lg); }
-  .todo-item.completed .todo-text {
-    text-decoration: line-through;
-    color: #9ca3af;
-  }
-  .todo-item.removing {
-    animation: slideOut 0.25s ease forwards;
-  }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes slideOut {
-    from { opacity: 1; transform: translateX(0); }
-    to   { opacity: 0; transform: translateX(40px); }
-  }
+  .todo-item.completed .todo-text { text-decoration: line-through; color: #9ca3af; }
+  .todo-item.removing { animation: slideOut 0.25s ease forwards; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes slideOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(40px)} }
 
-  /* Custom checkbox */
-  .checkbox-wrap {
-    position: relative;
-    width: 22px; height: 22px;
-    flex-shrink: 0;
-  }
-  .checkbox-wrap input {
-    opacity: 0; position: absolute;
-    width: 100%; height: 100%;
-    cursor: pointer; z-index: 2;
-  }
+  .checkbox-wrap { position: relative; width: 22px; height: 22px; flex-shrink: 0; }
+  .checkbox-wrap input { opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer; z-index: 2; }
   .checkmark {
-    position: absolute; inset: 0;
-    border: 2px solid #d1d5db;
-    border-radius: 6px;
-    transition: all var(--transition);
-    display: flex; align-items: center; justify-content: center;
+    position: absolute; inset: 0; border: 2px solid #d1d5db; border-radius: 6px;
+    transition: all var(--transition); display: flex; align-items: center; justify-content: center;
   }
-  .checkbox-wrap input:checked + .checkmark {
-    background: var(--success);
-    border-color: var(--success);
-  }
-  .checkbox-wrap input:checked + .checkmark::after {
-    content: "✓"; color: #fff; font-size: 13px; font-weight: 700; line-height: 1;
-  }
-  .checkbox-wrap input:hover + .checkmark { border-color: var(--success); }
-
-  .todo-text {
-    flex: 1; word-break: break-word;
-    transition: color var(--transition);
-  }
+  .checkbox-wrap input:checked+.checkmark { background: var(--success); border-color: var(--success); }
+  .checkbox-wrap input:checked+.checkmark::after { content:"✓"; color:#fff; font-size:13px; font-weight:700; }
+  .checkbox-wrap input:hover+.checkmark { border-color: var(--success); }
+  .todo-text { flex: 1; word-break: break-word; transition: color var(--transition); }
 
   .btn-delete {
-    width: 30px; height: 30px;
-    border: none; background: transparent;
-    color: #9ca3af; border-radius: 6px;
-    cursor: pointer; font-size: 1.1rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all var(--transition); flex-shrink: 0;
+    width: 30px; height: 30px; border: none; background: transparent; color: #9ca3af;
+    border-radius: 6px; cursor: pointer; font-size: 1.1rem; transition: all var(--transition);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
   }
   .btn-delete:hover { background: #fef2f2; color: var(--danger); }
 
-  /* ── Footer ───────────────────────────────── */
-  .footer-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .btn-outline {
-    background: transparent;
-    border: 1px solid var(--border);
-    font-size: 0.82rem;
-    padding: 8px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all var(--transition);
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-  .btn-outline:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-    background: #eef2ff;
-  }
+  /* Footer */
+  .footer-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
   .btn-share {
-    background: linear-gradient(135deg, var(--primary), #a855f7);
-    color: #fff;
-    border: none;
-    font-size: 0.85rem;
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all var(--transition);
-    font-weight: 600;
+    background: linear-gradient(135deg, var(--primary), #a855f7); color: #fff; border: none;
+    font-size: 0.82rem; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    transition: all var(--transition); font-weight: 600;
   }
   .btn-share:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.35); }
-  .btn-share:active { transform: translateY(0); }
+  .btn-outline {
+    background: transparent; border: 1px solid var(--border); font-size: 0.8rem;
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; color: var(--text-secondary);
+    transition: all var(--transition); font-weight: 500;
+  }
+  .btn-outline:hover { border-color: var(--primary); color: var(--primary); background: #eef2ff; }
   .btn-danger {
-    background: transparent; color: var(--danger);
-    border: 1px solid transparent;
-    font-size: 0.82rem; padding: 8px 14px;
-    border-radius: 8px; cursor: pointer;
-    transition: all var(--transition);
+    background: transparent; color: var(--danger); border: 1px solid transparent;
+    font-size: 0.8rem; padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: all var(--transition);
   }
   .btn-danger:hover { background: #fef2f2; border-color: var(--danger); }
   .btn-danger:disabled { color: #d1d5db; cursor: not-allowed; }
   .btn-danger:disabled:hover { background: transparent; border-color: transparent; }
 
-  /* ── Empty state ──────────────────────────── */
-  .empty-state {
-    text-align: center; padding: 40px 20px;
-    color: var(--text-secondary);
-  }
+  /* Empty state */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
   .empty-state .icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
   .empty-state p { font-size: 0.95rem; }
 
-  /* ── Toast ────────────────────────────────── */
+  /* Toast */
   .toast {
-    position: fixed; bottom: 30px; left: 50%;
-    transform: translateX(-50%) translateY(100px);
-    background: #1f2937; color: #fff;
-    padding: 12px 24px; border-radius: 24px;
-    font-size: 0.9rem; font-weight: 500;
-    z-index: 999; opacity: 0;
-    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-    pointer-events: none;
-    box-shadow: 0 8px 24px rgba(0,0,0,.2);
-    text-align: center;
-    max-width: 90vw;
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: #1f2937; color: #fff; padding: 12px 24px; border-radius: 24px;
+    font-size: 0.88rem; font-weight: 500; z-index: 999; opacity: 0;
+    transition: all 0.35s cubic-bezier(0.16,1,0.3,1); pointer-events: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2); text-align: center; max-width: 90vw;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .toast .copy-hint { font-size: 0.72rem; opacity: 0.6; margin-top: 4px; }
+  .toast .sub { font-size: 0.7rem; opacity: 0.6; margin-top: 4px; word-break: break-all; }
 
-  /* ── Share modal ──────────────────────────── */
+  /* Modal overlay */
   .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.45);
-    z-index: 998; display: flex; align-items: flex-end; justify-content: center;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.3s;
+    position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 998;
+    display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
   }
   .modal-overlay.show { opacity: 1; pointer-events: auto; }
   .modal-sheet {
-    background: #fff; width: 100%; max-width: 520px;
-    border-radius: 20px 20px 0 0;
-    padding: 24px 20px 36px;
-    transform: translateY(100%);
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 -4px 24px rgba(0,0,0,.1);
+    background: #fff; width: 100%; max-width: 520px; border-radius: 20px 20px 0 0;
+    padding: 24px 20px 36px; transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+    box-shadow: 0 -4px 24px rgba(0,0,0,.1); max-height: 80vh; overflow-y: auto;
   }
   .modal-overlay.show .modal-sheet { transform: translateY(0); }
-  .modal-sheet h3 {
-    text-align: center; font-size: 1.1rem;
-    margin-bottom: 16px; color: var(--text);
-  }
-  .modal-sheet .task-preview {
-    background: var(--bg); border-radius: var(--radius);
-    padding: 14px 16px; margin-bottom: 16px;
-    max-height: 160px; overflow-y: auto;
-    font-size: 0.88rem; list-style: none;
-  }
-  .modal-sheet .task-preview li {
-    padding: 4px 0; color: var(--text-secondary);
-  }
-  .modal-sheet .task-preview li::before { content: "☐ "; color: #9ca3af; }
-  .modal-sheet .actions {
-    display: flex; gap: 8px;
-  }
+  .modal-sheet h3 { text-align: center; font-size: 1.1rem; margin-bottom: 14px; }
+  .modal-sheet .actions { display: flex; gap: 8px; margin-top: 16px; }
   .modal-sheet .actions button {
-    flex: 1; padding: 12px; border-radius: var(--radius);
-    font-size: 0.9rem; font-weight: 600; cursor: pointer;
-    border: none; transition: all var(--transition);
+    flex: 1; padding: 12px; border-radius: 10px; font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; border: none; transition: all var(--transition);
   }
-  .modal-sheet .btn-copy {
-    background: var(--primary); color: #fff;
-  }
-  .modal-sheet .btn-copy:hover { background: var(--primary-hover); }
-  .modal-sheet .btn-cancel {
-    background: var(--bg); color: var(--text-secondary);
-  }
-  .modal-sheet .btn-cancel:hover { background: var(--border); }
+  .modal-sheet .btn-copy { background: var(--primary); color: #fff; }
+  .modal-sheet .btn-cancel { background: var(--bg); color: var(--text-secondary); }
 
-  /* ── Responsive ───────────────────────────── */
-  @media (max-width: 400px) {
+  /* History */
+  .history-list { list-style: none; }
+  .history-item {
+    display: flex; align-items: flex-start; gap: 12px; padding: 12px 0;
+    border-bottom: 1px solid var(--border); font-size: 0.85rem;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--primary);
+    flex-shrink: 0; margin-top: 5px;
+  }
+  .history-meta { color: var(--text-secondary); font-size: 0.75rem; }
+  .history-empty { text-align: center; color: var(--text-secondary); padding: 30px 0; }
+
+  /* Responsive */
+  @media (max-width:400px) {
     body { padding: 20px 8px 60px; }
-    .header h1 { font-size: 1.5rem; }
+    .header h1 { font-size: 1.4rem; }
     .toolbar { flex-direction: column; align-items: stretch; }
     .filters { justify-content: center; }
     .counter { text-align: center; }
@@ -377,7 +231,11 @@
   <header class="header">
     <h1>📝 我们的待办清单</h1>
     <p class="date" id="dateDisplay"></p>
-    <span class="shared-badge" id="sharedBadge">💌 来自TA分享的清单</span>
+    <div class="sync-bar" id="syncBar" title="点击手动同步">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncLabel">离线模式</span>
+    </div>
+    <div class="shared-badge" id="sharedBadge">💌 来自TA分享的清单</div>
   </header>
 
   <div class="input-group">
@@ -397,7 +255,11 @@
   <ul class="todo-list" id="todoList"></ul>
 
   <div class="footer-actions">
-    <button class="btn-share" id="shareBtn" title="分享给微信好友">📤 分享给TA</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn-share" id="shareBtn">📤 分享</button>
+      <button class="btn-outline" id="historyBtn">📜 历史记录</button>
+      <button class="btn-outline" id="settingsBtn" style="font-size:0.8rem;">⚙️ 同步设置</button>
+    </div>
     <button class="btn-danger" id="clearCompleted" disabled>清除已完成</button>
   </div>
 </div>
@@ -405,17 +267,28 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Share bottom sheet -->
+<!-- Share modal -->
 <div class="modal-overlay" id="shareModal">
   <div class="modal-sheet">
     <h3>📤 分享待办清单</h3>
-    <p style="text-align:center;font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
-      链接已包含当前所有待办事项
+    <p style="text-align:center;font-size:0.82rem;color:var(--text-secondary);margin-bottom:12px;">
+      对方打开链接即可看到最新内容
     </p>
-    <ul class="task-preview" id="taskPreview"></ul>
+    <ul class="todo-list" id="sharePreview" style="max-height:150px;overflow-y:auto;"></ul>
     <div class="actions">
       <button class="btn-cancel" id="cancelShare">取消</button>
       <button class="btn-copy" id="copyLink">📋 复制链接</button>
+    </div>
+  </div>
+</div>
+
+<!-- History modal -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal-sheet">
+    <h3>📜 修改历史记录</h3>
+    <ul class="history-list" id="historyList"></ul>
+    <div class="actions">
+      <button class="btn-cancel" id="closeHistory">关闭</button>
     </div>
   </div>
 </div>
@@ -424,125 +297,258 @@
 (function () {
   "use strict";
 
-  // ── State ──────────────────────────────────────
-  const STORAGE_KEY = "todo_app_tasks_v2";
-  let tasks    = [];
-  let filter   = "all";
-  let isShared = false;   // true if loaded from a shared link
+  // ── Constants ─────────────────────────────────
+  const GIST_FILENAME   = "todo-sync-data.json";
+  const POLL_INTERVAL   = 5000;
+  const DEBOUNCE_DELAY  = 800;
+  const LS_TOKEN        = "todo_gist_token";
+  const LS_GIST_ID      = "todo_gist_id";
+  const LS_TASKS        = "todo_tasks_local";
 
-  // ── DOM refs ───────────────────────────────────
-  const input          = document.getElementById("todoInput");
-  const addBtn         = document.getElementById("addBtn");
-  const list           = document.getElementById("todoList");
-  const counter        = document.getElementById("counter");
-  const clearCompleted = document.getElementById("clearCompleted");
-  const dateDisplay    = document.getElementById("dateDisplay");
+  // ── State ─────────────────────────────────────
+  let token   = null;
+  let gistId  = null;
+  let tasks   = [];
+  let filter  = "all";
+  let isShared = false;
+  let syncStatus = "offline";
+  let lastRemoteETag = null;
+  let saveTimer = null;
+  let pollTimer = null;
+  let readOnly = false;
+
+  // ── DOM ───────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const input          = $("todoInput");
+  const addBtn         = $("addBtn");
+  const list           = $("todoList");
+  const counter        = $("counter");
+  const clearCompleted = $("clearCompleted");
+  const dateDisplay    = $("dateDisplay");
   const filterBtns     = document.querySelectorAll(".filter-btn");
-  const shareBtn       = document.getElementById("shareBtn");
-  const sharedBadge    = document.getElementById("sharedBadge");
-  const toast          = document.getElementById("toast");
-  const shareModal     = document.getElementById("shareModal");
-  const taskPreview    = document.getElementById("taskPreview");
-  const cancelShare    = document.getElementById("cancelShare");
-  const copyLink       = document.getElementById("copyLink");
+  const shareBtn       = $("shareBtn");
+  const historyBtn     = $("historyBtn");
+  const settingsBtn    = $("settingsBtn");
+  const sharedBadge    = $("sharedBadge");
+  const toast          = $("toast");
+  const syncDot        = $("syncDot");
+  const syncLabel      = $("syncLabel");
+  const syncBar        = $("syncBar");
+  const shareModal     = $("shareModal");
+  const sharePreview   = $("sharePreview");
+  const cancelShare    = $("cancelShare");
+  const copyLinkBtn    = $("copyLink");
+  const historyModal   = $("historyModal");
+  const historyList    = $("historyList");
+  const closeHistory   = $("closeHistory");
 
-  // ── Persistence ────────────────────────────────
-  function loadTasks() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (_) { return []; }
-  }
-  function saveTasks() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  }
-
-  // ── URL share codec ────────────────────────────
-  // Encode tasks[] → compact string → base64url
-  function encodeTasks(list) {
-    // Only store text + done, keep it minimal
-    const compact = list.map(t => ({ t: t.text, d: t.done ? 1 : 0 }));
-    try {
-      return btoa(unescape(encodeURIComponent(JSON.stringify(compact))))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    } catch (_) { return ''; }
-  }
-
-  function decodeTasks(str) {
-    try {
-      // Restore base64 padding
-      let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
-      while (b64.length % 4) b64 += '=';
-      const json = decodeURIComponent(escape(atob(b64)));
-      const arr = JSON.parse(json);
-      if (!Array.isArray(arr)) return null;
-      return arr.map(item => ({
-        id: uid(),
-        text: String(item.t || item.text || ''),
-        done: !!(item.d || item.done)
-      }));
-    } catch (_) { return null; }
-  }
-
-  function getSharedFromURL() {
-    const p = new URLSearchParams(window.location.search);
-    return p.get('list') || null;
-  }
-
-  function buildShareURL(list) {
-    const encoded = encodeTasks(list);
-    const url = new URL(window.location.href);
-    url.search = ''; // clear all params
-    url.searchParams.set('list', encoded);
-    return url.toString();
-  }
-
-  // ── Helpers ────────────────────────────────────
-  function uid() {
-    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  }
+  // ── Helpers ───────────────────────────────────
+  function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+  function ts() { return Math.floor(Date.now()/1000); }
 
   function getFiltered() {
-    if (filter === "active")    return tasks.filter(t => !t.done);
-    if (filter === "completed") return tasks.filter(t => t.done);
+    if (filter==="active")    return tasks.filter(t=>!t.done);
+    if (filter==="completed") return tasks.filter(t=>t.done);
     return tasks;
   }
+  function remaining() { return tasks.filter(t=>!t.done).length; }
 
-  const remaining = () => tasks.filter(t => !t.done).length;
+  function escapeHTML(s) {
+    const el=document.createElement("span"); el.textContent=s; return el.innerHTML;
+  }
 
-  // ── Toast ──────────────────────────────────────
+  // ── Toast ─────────────────────────────────────
   let toastTimer;
   function showToast(msg, sub) {
     clearTimeout(toastTimer);
-    toast.innerHTML = msg + (sub ? `<div class="copy-hint">${sub}</div>` : '');
+    toast.innerHTML=msg+(sub?`<div class="sub">${sub}</div>`:'');
     toast.classList.add("show");
-    toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+    toastTimer=setTimeout(()=>toast.classList.remove("show"),2500);
   }
 
-  // ── Render ─────────────────────────────────────
-  function render() {
-    const filtered = getFiltered();
-    const left = remaining();
+  // ── Sync UI ───────────────────────────────────
+  function setSyncStatus(s, label) {
+    syncStatus=s; syncDot.className="sync-dot "+s; syncLabel.textContent=label||s;
+  }
 
-    counter.innerHTML = left === 0
-      ? "🎉 全部完成！"
-      : `还剩 <span>${left}</span> 项`;
+  // ── GitHub API ────────────────────────────────
+  function ghHeaders() {
+    const h={"Accept":"application/vnd.github+json"};
+    if (token) h["Authorization"]="Bearer "+token;
+    return h;
+  }
 
-    clearCompleted.disabled = !tasks.some(t => t.done);
+  async function ghFetch(url, opts={}) {
+    const res=await fetch(url,{...opts,headers:{...ghHeaders(),...(opts.headers||{})}});
+    if (!res.ok) {
+      if (res.status===401||res.status===403) throw new Error("AUTH");
+      throw new Error(`GitHub ${res.status}`);
+    }
+    return res;
+  }
 
-    if (filtered.length === 0) {
-      const msgs = {
-        all:       { icon: "📋", text: "还没有任务，快添加一个吧！" },
-        active:    { icon: "✅", text: "所有任务都完成啦！" },
-        completed: { icon: "📭", text: "还没有已完成的任务" },
+  // ── Gist CRUD ─────────────────────────────────
+  async function createGist(td) {
+    const payload={
+      description:"📝 Todo sync data",
+      public:true,
+      files:{[GIST_FILENAME]:{content:JSON.stringify({tasks:td,v:1})}}
+    };
+    const res=await ghFetch("https://api.github.com/gists",{
+      method:"POST",body:JSON.stringify(payload)
+    });
+    const data=await res.json();
+    return data.id;
+  }
+
+  async function readGist() {
+    if (!gistId) return null;
+    const hdrs={};
+    if (lastRemoteETag) hdrs["If-None-Match"]=lastRemoteETag;
+    try {
+      const res=await ghFetch(`https://api.github.com/gists/${gistId}`,{headers:hdrs});
+      if (res.status===304) return null;
+      lastRemoteETag=res.headers.get("etag")||lastRemoteETag;
+      const data=await res.json();
+      const file=data.files&&data.files[GIST_FILENAME];
+      if (!file||!file.content) return null;
+      const parsed=JSON.parse(file.content);
+      return {
+        tasks:(parsed.tasks||[]).map(t=>({
+          id:t.id||uid(),text:String(t.text||''),done:!!t.done,updatedAt:t.updatedAt||0
+        })),
+        v:parsed.v||1
       };
-      const m = msgs[filter];
-      list.innerHTML = `<li class="empty-state"><div class="icon">${m.icon}</div><p>${m.text}</p></li>`;
+    } catch(e){
+      if (e.message==="AUTH"){ setReadOnly(); throw e; }
+      console.warn("readGist:",e.message); return null;
+    }
+  }
+
+  async function writeGist(td) {
+    if (!gistId||readOnly) return false;
+    const content=JSON.stringify({tasks:td,v:1},null,2);
+    try {
+      const res=await ghFetch(`https://api.github.com/gists/${gistId}`,{
+        method:"PATCH",
+        body:JSON.stringify({files:{[GIST_FILENAME]:{content}}})
+      });
+      lastRemoteETag=null;
+      return true;
+    } catch(e){
+      if (e.message==="AUTH") setReadOnly();
+      console.warn("writeGist:",e.message); return false;
+    }
+  }
+
+  async function getGistHistory() {
+    if (!gistId) return [];
+    try {
+      const res=await ghFetch(`https://api.github.com/gists/${gistId}/commits`);
+      const commits=await res.json();
+      return commits.map(c=>({
+        version:c.version,
+        date:c.committed_at,
+        changes:c.change_status,
+        user:c.user?.login||"unknown"
+      }));
+    } catch(e){ console.warn("history:",e.message); return[]; }
+  }
+
+  // ── Merge ─────────────────────────────────────
+  function mergeTasks(local, remote) {
+    if (!remote||!remote.length) return local;
+    if (!local||!local.length) return remote;
+    const map=new Map();
+    for (const t of local) map.set(t.id,t);
+    for (const t of remote) {
+      const ex=map.get(t.id);
+      if (!ex||(t.updatedAt>ex.updatedAt)) map.set(t.id,t);
+    }
+    return [...map.values()].sort((a,b)=>b.updatedAt-a.updatedAt);
+  }
+
+  // ── Local persistence ─────────────────────────
+  function saveLocal() { localStorage.setItem(LS_TASKS,JSON.stringify(tasks)); }
+  function loadLocal() {
+    try{ const r=localStorage.getItem(LS_TASKS); return r?JSON.parse(r):[]; }
+    catch(_){ return[]; }
+  }
+  function saveConfig() {
+    if (token) localStorage.setItem(LS_TOKEN,token);
+    if (gistId) localStorage.setItem(LS_GIST_ID,gistId);
+  }
+  function loadConfig() {
+    token=localStorage.getItem(LS_TOKEN)||null;
+    gistId=localStorage.getItem(LS_GIST_ID)||null;
+  }
+  function setReadOnly() {
+    readOnly=true;
+    setSyncStatus("offline","只读模式");
+    showToast("🔒 已切换为只读模式","需要 token 才能编辑");
+  }
+
+  // ── Sync engine ───────────────────────────────
+  async function pullFromRemote() {
+    if (!gistId) return;
+    setSyncStatus("syncing","同步中…");
+    try {
+      const remote=await readGist();
+      if (remote===null){ setSyncStatus("online","已同步 ✓"); return; }
+      const merged=mergeTasks(tasks,remote.tasks);
+      if (JSON.stringify(merged)!==JSON.stringify(tasks)){
+        tasks=merged; saveLocal(); render();
+      }
+      setSyncStatus("online","已同步 ✓");
+    } catch(e){
+      setSyncStatus("offline","同步失败");
+    }
+  }
+
+  function schedulePush() {
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(async()=>{
+      if (!gistId||readOnly) return;
+      const stamp=ts();
+      tasks.forEach(t=>{ if(!t.updatedAt||t._dirty){ t.updatedAt=stamp; t._dirty=false; } });
+      saveLocal();
+      setSyncStatus("syncing","保存中…");
+      const ok=await writeGist(tasks);
+      setSyncStatus(ok?"online":"offline",ok?"已同步 ✓":"保存失败");
+      render();
+    },DEBOUNCE_DELAY);
+  }
+
+  function startPolling() {
+    stopPolling();
+    if (!gistId) return;
+    pullFromRemote();
+    pollTimer=setInterval(pullFromRemote,POLL_INTERVAL);
+  }
+  function stopPolling() {
+    if (pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  }
+
+  // ── Render ────────────────────────────────────
+  function render() {
+    const filtered=getFiltered();
+    const left=remaining();
+    counter.innerHTML=left===0?"🎉 全部完成！":`还剩 <span>${left}</span> 项`;
+    clearCompleted.disabled=!tasks.some(t=>t.done);
+
+    if (filtered.length===0){
+      const msgs={
+        all:{icon:"📋",text:"还没有任务，快添加一个吧！"},
+        active:{icon:"✅",text:"所有任务都完成啦！"},
+        completed:{icon:"📭",text:"还没有已完成的任务"}
+      };
+      const m=msgs[filter];
+      list.innerHTML=`<li class="empty-state"><div class="icon">${m.icon}</div><p>${m.text}</p></li>`;
     } else {
-      list.innerHTML = filtered.map(t => `
-        <li class="todo-item${t.done ? " completed" : ""}" data-id="${t.id}">
+      list.innerHTML=filtered.map(t=>`
+        <li class="todo-item${t.done?" completed":""}" data-id="${t.id}">
           <label class="checkbox-wrap">
-            <input type="checkbox" ${t.done ? "checked" : ""} data-action="toggle">
+            <input type="checkbox" ${t.done?"checked":""} data-action="toggle">
             <span class="checkmark"></span>
           </label>
           <span class="todo-text">${escapeHTML(t.text)}</span>
@@ -550,163 +556,249 @@
         </li>
       `).join("");
     }
-
-    sharedBadge.classList.toggle("show", isShared);
+    sharedBadge.classList.toggle("show",isShared);
   }
 
-  function escapeHTML(str) {
-    const el = document.createElement("span");
-    el.textContent = str;
-    return el.innerHTML;
+  // ── Actions ───────────────────────────────────
+  function addTask(text){
+    const t=text.trim(); if(!t)return;
+    const stamp=ts();
+    tasks.unshift({id:uid(),text:t,done:false,updatedAt:stamp,_dirty:true});
+    input.value=""; saveLocal(); render(); schedulePush();
   }
-
-  function refresh() {
-    saveTasks();
-    render();
+  function toggleTask(id){
+    const t=tasks.find(t=>t.id===id);
+    if(t){ t.done=!t.done; t.updatedAt=ts(); t._dirty=true; }
+    saveLocal(); render(); schedulePush();
   }
-
-  // ── Actions ────────────────────────────────────
-  function addTask(text) {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    tasks.unshift({ id: uid(), text: trimmed, done: false });
-    input.value = "";
-    refresh();
-  }
-
-  function toggleTask(id) {
-    const t = tasks.find(t => t.id === id);
-    if (t) { t.done = !t.done; }
-    refresh();
-  }
-
-  function deleteTask(id) {
-    const idx = tasks.findIndex(t => t.id === id);
-    if (idx === -1) return;
-    const el = list.querySelector(`[data-id="${id}"]`);
-    if (el) {
+  function deleteTask(id){
+    const idx=tasks.findIndex(t=>t.id===id);
+    if(idx===-1)return;
+    const el=list.querySelector(`[data-id="${id}"]`);
+    if(el){
       el.classList.add("removing");
-      el.addEventListener("animationend", () => {
-        tasks.splice(idx, 1);
-        refresh();
-      }, { once: true });
-    } else {
-      tasks.splice(idx, 1);
-      refresh();
-    }
+      el.addEventListener("animationend",()=>{
+        tasks.splice(idx,1); saveLocal(); render(); schedulePush();
+      },{once:true});
+    } else { tasks.splice(idx,1); saveLocal(); render(); schedulePush(); }
   }
-
-  function clearAllCompleted() {
-    tasks = tasks.filter(t => !t.done);
-    refresh();
+  function clearAllCompleted(){
+    tasks=tasks.filter(t=>!t.done);
+    tasks.forEach(t=>{ t.updatedAt=ts(); t._dirty=true; });
+    saveLocal(); render(); schedulePush();
   }
-
-  function setFilter(f) {
-    filter = f;
-    filterBtns.forEach(b => b.classList.toggle("active", b.dataset.filter === f));
+  function setFilter(f){
+    filter=f;
+    filterBtns.forEach(b=>b.classList.toggle("active",b.dataset.filter===f));
     render();
   }
 
-  // ── Share ──────────────────────────────────────
-  function openShareModal() {
-    if (tasks.length === 0) {
-      showToast("😅 还没有任务哦，先添加几项吧！");
-      return;
-    }
-    // Preview — show only active tasks in the preview
-    const active = tasks.filter(t => !t.done);
-    taskPreview.innerHTML = active.length > 0
-      ? active.map(t => `<li>${escapeHTML(t.text)}</li>`).join("")
-      : tasks.map(t => `<li>${escapeHTML(t.text)}</li>`).join("");
+  // ── Share ─────────────────────────────────────
+  function openShare(){
+    sharePreview.innerHTML=tasks.length===0
+      ?'<li class="empty-state"><p>还没有任务</p></li>'
+      :tasks.map(t=>`<li class="todo-item${t.done?" completed":""}"><span class="todo-text">${escapeHTML(t.text)}</span></li>`).join("");
     shareModal.classList.add("show");
   }
+  function closeShareModal(){ shareModal.classList.remove("show"); }
 
-  function closeShareModal() {
-    shareModal.classList.remove("show");
-  }
-
-  async function doCopyLink() {
-    const url = buildShareURL(tasks);
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast("✅ 链接已复制！", "粘贴到微信发给TA吧");
-    } catch (_) {
-      // fallback: show the URL for manual copy
-      showToast("📋 请手动复制链接", url);
-      // Also try old-school method
-      const ta = document.createElement("textarea");
-      ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
-      document.body.appendChild(ta); ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
+  async function doCopyShare(){
+    const url=new URL(window.location.href); url.search='';
+    if (gistId) url.searchParams.set("gist",gistId);
+    try{
+      await navigator.clipboard.writeText(url.toString());
+      showToast("✅ 链接已复制！","粘贴到微信发给TA吧");
+    } catch(_){
+      const ta=document.createElement("textarea"); ta.value=url.toString();
+      ta.style.cssText="position:fixed;opacity:0;"; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+      showToast("✅ 链接已复制！","粘贴到微信发给TA吧");
     }
     closeShareModal();
   }
 
-  // ── Event binding ──────────────────────────────
-  list.addEventListener("click", e => {
-    const item = e.target.closest(".todo-item");
-    if (!item) return;
-    const id = item.dataset.id;
-    const action = e.target.closest("[data-action]")?.dataset.action;
-    if (action === "toggle") toggleTask(id);
-    if (action === "delete") deleteTask(id);
-  });
-
-  list.addEventListener("change", e => {
-    if (e.target.dataset.action === "toggle") {
-      const id = e.target.closest(".todo-item")?.dataset.id;
-      if (id) toggleTask(id);
+  // ── History ───────────────────────────────────
+  async function openHistory(){
+    historyModal.classList.add("show");
+    historyList.innerHTML='<li class="history-empty">加载中…</li>';
+    const commits=await getGistHistory();
+    if (!commits.length){
+      historyList.innerHTML='<li class="history-empty">暂无历史记录<br><small>开始同步后，每次修改都会记录在这里</small></li>';
+      return;
     }
-  });
+    historyList.innerHTML=commits.slice(0,40).map(c=>`
+      <li class="history-item">
+        <div class="history-dot"></div>
+        <div>
+          <div>
+            ${c.changes.deletions||0} 删除 ·
+            ${c.changes.additions||0} 新增 ·
+            ${c.changes.total||0} 处变更
+          </div>
+          <div class="history-meta">${new Date(c.date).toLocaleString("zh-CN")}</div>
+        </div>
+      </li>
+    `).join("");
+  }
+  function closeHistoryModal(){ historyModal.classList.remove("show"); }
 
-  addBtn.addEventListener("click", () => addTask(input.value));
-  input.addEventListener("keydown", e => {
-    if (e.key === "Enter") addTask(input.value);
-  });
+  // ── Setup ─────────────────────────────────────
+  function showSetup(){
+    const existing=document.querySelector(".setup-overlay");
+    if (existing) existing.remove();
 
-  clearCompleted.addEventListener("click", clearAllCompleted);
-  shareBtn.addEventListener("click", openShareModal);
-  cancelShare.addEventListener("click", closeShareModal);
-  copyLink.addEventListener("click", doCopyLink);
-  shareModal.addEventListener("click", e => {
-    if (e.target === shareModal) closeShareModal();
-  });
+    const overlay=document.createElement("div");
+    overlay.className="setup-overlay";
+    overlay.innerHTML=`
+      <div class="setup-card">
+        <h2>☁️ 开启云端同步</h2>
+        <p>输入 GitHub Token，待办清单就能在手机和电脑之间自动同步。每 5 秒自动拉取更新，修改后自动保存。</p>
+        <input type="password" id="setupToken" placeholder="ghp_xxxxxxxxxxxx">
+        <p class="setup-error" id="setupError"></p>
+        <div class="actions">
+          <button class="btn btn-primary" id="setupSubmit">🚀 开启同步</button>
+          <button class="skip" id="setupSkip">跳过，使用本地模式</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
 
-  filterBtns.forEach(b => {
-    b.addEventListener("click", () => setFilter(b.dataset.filter));
-  });
+    const tokInput=overlay.querySelector("#setupToken");
+    const errEl=overlay.querySelector("#setupError");
+    const submit=overlay.querySelector("#setupSubmit");
 
-  // ── Date display ───────────────────────────────
-  function updateDate() {
-    const now = new Date();
-    const weekDays = ["日","一","二","三","四","五","六"];
-    dateDisplay.textContent =
-      `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${weekDays[now.getDay()]}`;
+    if (token) tokInput.value=token;
+
+    submit.addEventListener("click",async()=>{
+      const tok=tokInput.value.trim();
+      if (!tok||!tok.startsWith("ghp_")){
+        errEl.style.display="block"; errEl.textContent="请输入有效的 GitHub Token（ghp_ 开头）"; return;
+      }
+      errEl.style.display="none"; submit.disabled=true; submit.textContent="⏳ 验证中…";
+      try {
+        token=tok;
+        const res=await fetch("https://api.github.com/user",{headers:ghHeaders()});
+        if (!res.ok) throw new Error();
+        if (!gistId) { gistId=await createGist(tasks); }
+        saveConfig();
+        overlay.remove();
+        readOnly=false;
+        await pullFromRemote();
+        startPolling();
+        showToast("✅ 同步已开启！","手机电脑自动同步，每5秒检查更新");
+      } catch(e){
+        errEl.style.display="block"; errEl.textContent="Token 无效或网络不通，请重试";
+        submit.disabled=false; submit.textContent="🚀 开启同步";
+        token=null;
+      }
+    });
+
+    overlay.querySelector("#setupSkip").addEventListener("click",()=>{
+      overlay.remove();
+      if (!gistId) setSyncStatus("offline","离线模式");
+    });
   }
 
-  // ── Init ───────────────────────────────────────
-  function init() {
-    // 1. Check URL for shared data
-    const sharedStr = getSharedFromURL();
-    const sharedTasks = sharedStr ? decodeTasks(sharedStr) : null;
-
-    if (sharedTasks && sharedTasks.length > 0) {
-      // Merge: shared tasks replace local ones (user intentionally opened the link)
-      tasks = sharedTasks;
-      isShared = true;
-      saveTasks();
-
-      // Clean URL (remove the list param for a cleaner look)
-      if (window.history && window.history.replaceState) {
-        const clean = new URL(window.location.href);
-        clean.searchParams.delete("list");
-        window.history.replaceState({}, "", clean.toString());
+  // ── URL params ────────────────────────────────
+  function initFromURL(){
+    const p=new URLSearchParams(window.location.search);
+    const urlGist=p.get("gist");
+    if (urlGist){
+      gistId=urlGist;
+      localStorage.setItem(LS_GIST_ID,gistId);
+      isShared=true;
+      if (window.history&&window.history.replaceState){
+        const clean=new URL(window.location.href);
+        clean.searchParams.delete("gist");
+        window.history.replaceState({},"",clean.toString());
       }
-    } else {
-      // Load from localStorage
-      tasks = loadTasks();
-      isShared = false;
+    }
+  }
+
+  // ── Events ────────────────────────────────────
+  list.addEventListener("click",e=>{
+    const item=e.target.closest(".todo-item");
+    if(!item)return;
+    const id=item.dataset.id;
+    const action=e.target.closest("[data-action]")?.dataset.action;
+    if(action==="toggle") toggleTask(id);
+    if(action==="delete") deleteTask(id);
+  });
+  list.addEventListener("change",e=>{
+    if(e.target.dataset.action==="toggle"){
+      const id=e.target.closest(".todo-item")?.dataset.id;
+      if(id) toggleTask(id);
+    }
+  });
+  addBtn.addEventListener("click",()=>addTask(input.value));
+  input.addEventListener("keydown",e=>{ if(e.key==="Enter") addTask(input.value); });
+  clearCompleted.addEventListener("click",clearAllCompleted);
+  shareBtn.addEventListener("click",openShare);
+  cancelShare.addEventListener("click",closeShareModal);
+  copyLinkBtn.addEventListener("click",doCopyShare);
+  shareModal.addEventListener("click",e=>{ if(e.target===shareModal) closeShareModal(); });
+  historyBtn.addEventListener("click",openHistory);
+  closeHistory.addEventListener("click",closeHistoryModal);
+  historyModal.addEventListener("click",e=>{ if(e.target===historyModal) closeHistoryModal(); });
+  settingsBtn.addEventListener("click",showSetup);
+  syncBar.addEventListener("click",()=>{
+    if (gistId) pullFromRemote(); else showSetup();
+  });
+  filterBtns.forEach(b=>b.addEventListener("click",()=>setFilter(b.dataset.filter)));
+
+  // ── Date ──────────────────────────────────────
+  function updateDate(){
+    const d=new Date();
+    const w=["日","一","二","三","四","五","六"];
+    dateDisplay.textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 星期${w[d.getDay()]}`;
+  }
+
+  // ── Init ──────────────────────────────────────
+  async function init(){
+    loadConfig();
+    initFromURL();
+    tasks=loadLocal();
+
+    if (gistId){
+      setSyncStatus("syncing","加载中…");
+      try {
+        const remote=await readGist();
+        if (remote){
+          tasks=mergeTasks(tasks,remote.tasks);
+          saveLocal();
+        }
+        setSyncStatus("online","已同步 ✓");
+      } catch(e){
+        if (e.message==="AUTH"){
+          setReadOnly();
+          // Try public read
+          try {
+            const res=await fetch(`https://api.github.com/gists/${gistId}`,{
+              headers:{"Accept":"application/vnd.github+json"}
+            });
+            if (res.ok){
+              const data=await res.json();
+              const file=data.files&&data.files[GIST_FILENAME];
+              if (file&&file.content){
+                const parsed=JSON.parse(file.content);
+                tasks=mergeTasks(tasks,parsed.tasks||[]);
+                saveLocal();
+              }
+              setSyncStatus("online","只读模式");
+            } else {
+              setSyncStatus("offline","无法连接");
+            }
+          } catch(_){ setSyncStatus("offline","离线模式"); }
+        } else {
+          setSyncStatus("offline","离线模式");
+        }
+      }
+      startPolling();
+    }
+
+    if (!gistId){
+      setSyncStatus("offline","离线模式");
+      setTimeout(showSetup,600);
     }
 
     render();
@@ -716,6 +808,5 @@
   init();
 })();
 </script>
-
 </body>
 </html>
